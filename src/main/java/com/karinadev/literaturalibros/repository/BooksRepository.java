@@ -25,5 +25,9 @@ public interface BooksRepository extends JpaRepository<Books,Long> {
     @Query("SELECT l FROM Languages l WHERE l.idioma LIKE :idioma")
     List<Languages> listarLibrosPorIdiomas(String idioma);
 
+    @Query("SELECT b FROM Books b ")
+    List<Books> listarLibros();
+
+
 
 }

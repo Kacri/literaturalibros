@@ -38,6 +38,9 @@ public class Principal {
                     3 - Listar Autores Registrados
                     4 - Listar autores vivos en un determinado año
                     5 - Listar libros por idiomas
+                    6 - Reporte Estadisticos
+                    7 - Top 10 libros mas Descargados
+                    8 - Buscar Libros por Autor
                     0 - Salir
                     """;
             System.out.println(menu);
@@ -60,6 +63,15 @@ public class Principal {
                 case 5:
                     listarLibrosPorIdioma();
                     break;
+                case 6:
+                    datosEstadisticos();
+                    break;
+                case 7:
+                    top10librosMasDescargados();
+                    break;
+                case 8:
+                    buscarAutororApi();
+                    break;
                 default:
                     System.out.println("Opcion invalida");
             }
@@ -76,6 +88,7 @@ public class Principal {
         Optional<DatosBooks> libroBuscado = result.datosLibrosList().stream()
                         .filter(l -> l.titulo().toUpperCase().contains(tituloBooks.toUpperCase()))
                                 .findFirst();
+
             if (libroBuscado.isPresent()){
 //                System.out.println("------------------------LIBRO-----------------");
 //                System.out.println("Titulo: " + libroBuscado.get().titulo());
@@ -174,6 +187,86 @@ private void listarLibrosPorIdioma(){
     var idioma = teclado.nextLine();
     List<Languages> languagesList = booksRepository.listarLibrosPorIdiomas(idioma);
     System.out.println(languagesList);
+}
+
+private void datosEstadisticos(){
+        List<Books> booksList = booksRepository.listarLibros();
+        DoubleSummaryStatistics est = booksList.stream().filter(t -> t.getNumeroDeDescargas()>9)
+//                .peek(t -> System.out.println("Libro: "+t.getTitulo()))
+                .mapToDouble(t -> t.getNumeroDeDescargas())
+                .summaryStatistics();
+//Busca el libro
+        String libroMasDescargado = booksList.stream()
+                        .filter(t -> t.getNumeroDeDescargas() == est.getMax())
+                                .map(Books::getTitulo)
+                                        .findFirst()
+                                                .orElse("No se encontro ninguno");
+    String libroConMenosDescargas = booksList.stream()
+            .filter(t -> t.getNumeroDeDescargas() == est.getMin())
+            .map(Books::getTitulo)
+            .findFirst()
+            .orElse("No se encontro ninguno");
+
+
+        System.out.println("----------------------------------");
+    System.out.println("Estadistica de descargas de Libros");
+    System.out.println("----------------------------------");
+    System.out.println("Media de las Descargas: "+est.getAverage());
+    System.out.println("Libro mas leido : " + libroMasDescargado +", Con un maximo de descargas: "+ est.getMax());
+    System.out.println("Libro con menos leido: "+libroConMenosDescargas+", Con un minimo de descargas: "+est.getMin());
+    System.out.println("Total descargas de libros: "+est.getSum());
+
+}
+
+private void top10librosMasDescargados(){
+    var json = consumoApi.obtenerDatos(URL_BASE);
+    Datos result = convierteDatos.obtenerDatos(json, Datos.class);
+
+List<DatosBooks> top10Libros = result.datosLibrosList().stream()
+        .sorted(Comparator.comparing(DatosBooks::numeroDeDescargas).reversed())
+        .limit(10)
+        .collect(Collectors.toList());
+
+System.out.println("TOP 10 DE LIBROS MAS DESCARGADOS ");
+    System.out.println("-------------------------------");
+top10Libros.forEach(d -> System.out.println("Libro: "+d.titulo() + ", Numero de Descargas: "+d.numeroDeDescargas()));
+
+    List<DatosBooks> top10menosLibros = result.datosLibrosList().stream()
+            .sorted(Comparator.comparing(DatosBooks::numeroDeDescargas))
+            .limit(10)
+            .collect(Collectors.toList());
+    System.out.println("-------------------------------");
+    System.out.println("TOP 10 DE LIBROS MENOS DESCARGADOS");
+    System.out.println("-------------------------------");
+top10menosLibros.forEach(m -> System.out.println("Libros: "+m.titulo() + ", Numero de Descargas: "+m.numeroDeDescargas()));
+}
+
+private void buscarAutororApi()
+{
+    System.out.println("Por favor escribir el Nombre del Autor que desea Buscar: ");
+    var nombreAutor = teclado.nextLine();
+
+    var json = consumoApi.obtenerDatos(URL_BASE + "?search=" + nombreAutor.replace(" ","+"));
+    Datos result = convierteDatos.obtenerDatos(json, Datos.class);
+
+    List<DatosBooks> AutorBuscado = result.datosLibrosList().stream()
+            .filter(l -> l.titulo().toUpperCase().contains(nombreAutor.toUpperCase()))
+            .collect(Collectors.toList());
+
+
+
+
+    if (!AutorBuscado.isEmpty()){
+        AutorBuscado.forEach(a -> System.out.println("\n Libros: "+a.titulo() +
+                "\n Autor: " + a.datosAutorList().stream().findFirst().map(DatosAutor::nombre).orElse("Autor no disponible") +
+                "\n Idioma: "+a.idiomaList() +
+                "\n Numero de Descargas: "+a.numeroDeDescargas()));
+    }else {
+        System.out.println("------------------------------------------------------------------");
+        System.out.println("No existe Autor");
+        System.out.println("------------------------------------------------------------------");
+    }
+
 }
 
 }
